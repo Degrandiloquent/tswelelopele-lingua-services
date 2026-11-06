@@ -1,0 +1,20 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>Admin | Tswelelopele</title><link rel="stylesheet" href="css/style.css">
+<style>body{padding:32px}.row{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:14px 18px;margin-bottom:10px}.row small{color:var(--muted)}.row button{margin-top:8px}input{max-width:420px}</style></head>
+<body><div class="wrap"><h1 style="font-size:2rem">Admin dashboard</h1>
+<form id="login" style="grid-template-columns:1fr auto;max-width:560px"><input id="tok" type="password" placeholder="Admin token (from .env)" required><button class="btn" type="submit">Load</button></form>
+<p id="msg"></p><p style="color:var(--muted)">Note: on free hosting this list resets when the server restarts. Your email inbox is the permanent record.</p><h2>Enquiries</h2><div id="enquiries"></div><h2>Feedback (approve to show on the website)</h2><div id="feedback"></div><h2>Newsletter subscribers</h2><div id="subscribers"></div></div>
+<script>
+const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const api=(p,o={})=>fetch('/api/admin/'+p,{...o,headers:{'Content-Type':'application/json',Authorization:'Bearer '+sessionStorage.t}}).then(r=>{if(!r.ok)throw new Error(r.status==401?'Wrong token':'Error');return r.json()});
+async function load(){try{$('msg').textContent='';
+ const[e,f,s]=await Promise.all([api('enquiries'),api('feedback'),api('subscribers')]);
+ $('enquiries').innerHTML=e.map(x=>`<div class="row"><b>${esc(x.name)}</b> · ${esc(x.service)} · <a href="mailto:${esc(x.email)}">${esc(x.email)}</a><br><small>${esc(x.pair)} | due ${esc(x.deadline)||'n/a'} | ${new Date(x.createdAt).toLocaleString()} | ${esc(x.status)}</small><p>${esc(x.message)}</p><button class="btn" data-k="enquiries" data-i="${x.id}" data-s="${x.status=='done'?'new':'done'}">Mark ${x.status=='done'?'new':'done'}</button></div>`).join('')||'<p>None yet.</p>';
+ $('feedback').innerHTML=f.map(x=>`<div class="row"><b>${esc(x.name)}</b> ${'★'.repeat(x.rating)}<p>${esc(x.comment)}</p><button class="btn" data-k="feedback" data-i="${x.id}" data-a="${!x.approved}">${x.approved?'Hide':'Approve'}</button></div>`).join('')||'<p>None yet.</p>';
+ $('subscribers').innerHTML=s.map(x=>`<div class="row">${esc(x.email)} <small>${new Date(x.createdAt).toLocaleDateString()}</small></div>`).join('')||'<p>None yet.</p>';
+}catch(err){$('msg').textContent=err.message}}
+$('login').onsubmit=ev=>{ev.preventDefault();sessionStorage.t=$('tok').value;load()};
+document.body.onclick=async ev=>{const b=ev.target.closest('button[data-k]');if(!b)return;
+ await api(b.dataset.k+'/'+b.dataset.i,{method:'PATCH',body:JSON.stringify(b.dataset.k=='feedback'?{approved:b.dataset.a=='true'}:{status:b.dataset.s})});load()};
+if(sessionStorage.t)load();
+</script></body></html>
